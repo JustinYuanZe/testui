@@ -3,48 +3,41 @@
     <v-row justify="center">
       <v-col cols="12" sm="10" md="8" lg="6">
         <v-card class="test-card" elevation="3">
-          <!-- Header -->
           <div class="test-header pa-4 text-center">
             <v-icon color="white" size="28">mdi-clipboard-list</v-icon>
-            <h1 class="text-h6 font-weight-bold text-white mt-2">{{ $t('test.title') }}</h1>
+            <h1 class="text-h6 font-weight-bold text-white mt-2">Career Test</h1>
             <div class="text-body-2 text-white opacity-80 mt-1">
-              {{ $t('test.questionOf', { current: currentQuestion + 1, total: questions.length }) }}
+              Question {{ currentQuestion + 1 }} of {{ questions.length }}
             </div>
           </div>
 
-          <!-- Progress -->
           <v-progress-linear :model-value="progress" color="success" height="6" class="progress-bar"></v-progress-linear>
 
           <v-card-text class="pa-4">
-            <!-- Loading State -->
             <div v-if="loading" class="text-center py-8">
               <v-progress-circular indeterminate color="primary" size="40"></v-progress-circular>
-              <p class="mt-3 text-body-2 text-grey">{{ $t('test.loadingQuestions') }}</p>
+              <p class="mt-3 text-body-2 text-grey">Loading questions...</p>
             </div>
 
-            <!-- Question Content -->
             <div v-else-if="!showResults && questions.length > 0">
-              <!-- Part Header -->
               <v-alert v-if="showPartHeader" type="info" variant="tonal" density="compact" class="mb-4">
                 <div class="text-body-2 font-weight-bold">
-                  {{ $t('test.part', { number: questions[currentQuestion].part }) }}: {{ questions[currentQuestion].partTitle }}
+                  Part {{ questions[currentQuestion].part }}: {{ questions[currentQuestion].partTitle }}
                 </div>
               </v-alert>
 
-              <!-- Question Card -->
               <div class="question-box mb-5">
                 <v-chip size="x-small" color="primary" variant="flat" class="mb-2">
-                  {{ questions[currentQuestion].id }}
+                  {{ questions[currentQuestion].category ? questions[currentQuestion].category.toUpperCase() : 'GENERAL' }}
                 </v-chip>
                 <p class="question-text">{{ questions[currentQuestion].question }}</p>
               </div>
 
-              <!-- Rating Options -->
               <div class="rating-scale">
                 <v-radio-group v-model="answers[questions[currentQuestion].id]" class="ma-0">
                   <div class="scale-options">
                     <label 
-                      v-for="option in translatedRatingOptions" 
+                      v-for="option in ratingOptions" 
                       :key="option.value" 
                       class="scale-option" 
                       :class="{ 'selected': answers[questions[currentQuestion].id] === option.value }"
@@ -57,47 +50,27 @@
                 </v-radio-group>
               </div>
 
-              <!-- Navigation Buttons -->
               <div class="d-flex justify-space-between mt-5">
-                <v-btn 
-                  variant="outlined" 
-                  color="grey-darken-1"
-                  :disabled="currentQuestion === 0" 
-                  @click="previousQuestion"
-                  prepend-icon="mdi-arrow-left"
-                >
-                  {{ $t('common.previous') }}
+                <v-btn variant="outlined" color="grey-darken-1" :disabled="currentQuestion === 0" @click="previousQuestion" prepend-icon="mdi-arrow-left">
+                  Previous
                 </v-btn>
 
-                <v-btn 
-                  v-if="currentQuestion < questions.length - 1" 
-                  color="primary"
-                  :disabled="answers[questions[currentQuestion].id] === undefined"
-                  @click="nextQuestion" 
-                  append-icon="mdi-arrow-right"
-                >
-                  {{ $t('common.next') }}
+                <v-btn v-if="currentQuestion < questions.length - 1" color="primary" :disabled="answers[questions[currentQuestion].id] === undefined" @click="nextQuestion" append-icon="mdi-arrow-right">
+                  Next
                 </v-btn>
 
-                <v-btn 
-                  v-else 
-                  color="success"
-                  :disabled="answers[questions[currentQuestion].id] === undefined" 
-                  @click="finishTest"
-                  prepend-icon="mdi-check"
-                >
-                  {{ $t('test.complete') }}
+                <v-btn v-else color="success" :disabled="answers[questions[currentQuestion].id] === undefined" :loading="isAnalyzing" @click="finishTest" prepend-icon="mdi-check">
+                  {{ isAnalyzing ? 'Analyzing...' : 'Complete Test' }}
                 </v-btn>
               </div>
             </div>
 
-            <!-- Completion State -->
             <div v-else-if="showResults" class="text-center py-6">
               <v-icon color="success" size="56">mdi-check-circle</v-icon>
-              <h2 class="text-h6 mt-4 mb-2">{{ $t('test.completed') }}</h2>
+              <h2 class="text-h6 mt-4 mb-2">Test Completed</h2>
               <p class="text-body-2 text-grey mb-4">Your results are ready!</p>
               <v-btn color="primary" size="large" :to="{ name: 'Results' }" prepend-icon="mdi-chart-line">
-                {{ $t('test.viewResults') }}
+                View Results
               </v-btn>
             </div>
           </v-card-text>
@@ -109,7 +82,115 @@
 
 <script>
 import { auth } from '../store/auth'
-import { API_URL } from '../config/api'
+import { API_ENDPOINTS } from '../config/api'
+
+const HARDCODED_QUESTIONS = [
+  {
+    id: "Q1.1",
+    part: 1,
+    partTitle: "Activity & Interest Survey (Activities)",
+    question: "Participating in a programming competition (hackathon) or solving coding puzzles (e.g., LeetCode).",
+    category: "technical"
+  },
+  {
+    id: "Q1.2",
+    part: 1,
+    partTitle: "Activity & Interest Survey (Activities)",
+    question: "Tinkering with computer hardware, assembling a PC, or building simple electronic circuits (e.g., with Arduino, Raspberry Pi).",
+    category: "technical"
+  },
+  {
+    id: "Q1.7",
+    part: 1,
+    partTitle: "Activity & Interest Survey (Activities)",
+    question: "Analyzing real-world data (e.g., tracking personal spending via spreadsheets, analyzing sports statistics, tracking investment performance).",
+    category: "business"
+  },
+  {
+    id: "Q1.12",
+    part: 1,
+    partTitle: "Activity & Interest Survey (Activities)",
+    question: "Graphic design, photo editing (Photoshop, Lightroom), or video editing (Premiere, CapCut).",
+    category: "creative"
+  },
+  {
+    id: "Q1.16",
+    part: 1,
+    partTitle: "Activity & Interest Survey (Activities)",
+    question: "Participating in volunteer or community projects, especially those using technology to solve social problems.",
+    category: "interdisciplinary"
+  },
+  {
+    id: "Q2.3",
+    part: 2,
+    partTitle: "Personality & Thinking Style Survey (Traits)",
+    question: "I can patiently work on a logical or complex technical problem (like debugging) for hours without getting discouraged.",
+    category: "technical"
+  },
+  {
+    id: "Q2.6",
+    part: 2,
+    partTitle: "Personality & Thinking Style Survey (Traits)",
+    question: "I tend to look at the \"big picture\" and the end goal, rather than getting bogged down in minute technical details.",
+    category: "business"
+  },
+  {
+    id: "Q2.9",
+    part: 2,
+    partTitle: "Personality & Thinking Style Survey (Traits)",
+    question: "I am interested in how technology can help an organization generate revenue, save costs, or gain a competitive advantage.",
+    category: "business"
+  },
+  {
+    id: "Q2.13",
+    part: 2,
+    partTitle: "Personality & Thinking Style Survey (Traits)",
+    question: "I can easily put myself in the end-user's or audience's shoes to understand their needs, emotions, and difficulties.",
+    category: "creative"
+  },
+  {
+    id: "Q2.16",
+    part: 2,
+    partTitle: "Personality & Thinking Style Survey (Traits)",
+    question: "I enjoy working at the intersection of different fields (e.g., combining technology with medicine, or technology with art).",
+    category: "interdisciplinary"
+  },
+  {
+    id: "Q3.1",
+    part: 3,
+    partTitle: "Experience & Academic Aptitude Survey (Subjects)",
+    question: "Advanced Mathematics (e.g., Calculus, Trigonometry).",
+    category: "technical"
+  },
+  {
+    id: "Q3.4",
+    part: 3,
+    partTitle: "Experience & Academic Aptitude Survey (Subjects)",
+    question: "When learning programming (if applicable), I enjoy exploring algorithms and data structures (how things work internally).",
+    category: "technical"
+  },
+  {
+    id: "Q3.6",
+    part: 3,
+    partTitle: "Experience & Academic Aptitude Survey (Subjects)",
+    question: "Statistics and applying it to analyze data and draw conclusions.",
+    category: "business"
+  },
+  {
+    id: "Q3.12",
+    part: 3,
+    partTitle: "Experience & Academic Aptitude Survey (Subjects)",
+    question: "When learning programming (if applicable), I prefer focusing on User Interface (UI) and User Experience (UX) design to make things look good and easy to use.",
+    category: "creative"
+  },
+  {
+    id: "Q3.15",
+    part: 3,
+    partTitle: "Experience & Academic Aptitude Survey (Subjects)",
+    question: "I find myself performing well in and interested in both Natural Sciences (like Math) and Social Sciences (like Literature, History, Geography).",
+    category: "interdisciplinary"
+  }
+];
 
 export default {
   name: 'CareerTest',
@@ -119,11 +200,13 @@ export default {
       answers: {},
       showResults: false,
       questions: [],
-      loading: true
+      loading: true,
+      isAnalyzing: false
     }
   },
   computed: {
     progress() {
+      if (this.questions.length === 0) return 0;
       return ((this.currentQuestion + 1) / this.questions.length) * 100
     },
     showPartHeader() {
@@ -133,37 +216,27 @@ export default {
       const prevPart = this.questions[this.currentQuestion - 1]?.part
       return currentPart !== prevPart
     },
-    translatedRatingOptions() {
+    ratingOptions() {
       return [
-        { value: -2, text: this.$t('test.stronglyDisagree') },
-        { value: -1, text: this.$t('test.disagree') },
-        { value: 0, text: this.$t('test.neutral') },
-        { value: 1, text: this.$t('test.agree') },
-        { value: 2, text: this.$t('test.stronglyAgree') }
+        { value: -2, text: 'Strongly Disagree' },
+        { value: -1, text: 'Disagree' },
+        { value: 0, text: 'Neutral' },
+        { value: 1, text: 'Agree' },
+        { value: 2, text: 'Strongly Agree' }
       ]
     }
   },
   async mounted() {
-    await this.loadQuestions()
+    this.loadQuestions()
     const savedAnswers = localStorage.getItem('careerTestAnswers')
     if (savedAnswers) {
       this.answers = JSON.parse(savedAnswers)
     }
   },
   methods: {
-    async loadQuestions() {
-      try {
-        const response = await fetch(`${API_URL}/questions`)
-        const data = await response.json()
-        if (data.success) {
-          this.questions = data.questions
-        }
-      } catch (error) {
-        console.error('Failed to load questions:', error)
-        this.questions = []
-      } finally {
-        this.loading = false
-      }
+    loadQuestions() {
+      this.questions = HARDCODED_QUESTIONS
+      this.loading = false
     },
     nextQuestion() {
       if (this.currentQuestion < this.questions.length - 1) {
@@ -180,8 +253,10 @@ export default {
       localStorage.setItem('careerTestAnswers', JSON.stringify(this.answers))
     },
     async finishTest() {
+      this.isAnalyzing = true
       this.saveAnswers()
       await this.calculateResults()
+      this.isAnalyzing = false
       this.showResults = true
     },
     async calculateResults() {
@@ -192,38 +267,66 @@ export default {
         interdisciplinary: 0
       }
 
+      const qaPayload = []
+      const sanitizedAnswers = {}
+
       this.questions.forEach(question => {
         const answer = this.answers[question.id]
         if (answer !== undefined) {
           const category = question.category
-          categoryScores[category] = (categoryScores[category] || 0) + answer
+          if(categoryScores[category] !== undefined) {
+             categoryScores[category] += answer
+          }
+          
+          qaPayload.push({
+            question: question.question,
+            score: answer
+          })
+
+          const safeId = question.id.replace(/\./g, '_')
+          sanitizedAnswers[safeId] = answer
         }
       })
 
-      const results = this.generateCareerRecommendations(categoryScores)
+      let results = this.generateCareerRecommendations(categoryScores)
+
+      try {
+        const response = await fetch(API_ENDPOINTS.CAREER_ANALYSIS, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: qaPayload })
+        })
+
+        if (response.ok) {
+            const aiData = await response.json()
+            results.aiAnalysis = {
+                summary: aiData.ai_summary,
+                courses: aiData.courses
+            }
+        }
+      } catch (error) {
+        console.warn('AI Analysis failed/skipped:', error)
+      }
+
       localStorage.setItem('careerResults', JSON.stringify(results))
 
-      if (auth.isLoggedIn && auth.user && auth.accessToken) {
-        try {
-          const response = await fetch(`${API_URL}/test-results`, {
+      if (auth.isLoggedIn && auth.user) {
+        const userIdToSend = auth.user.id || auth.user._id || 'demo_user_id';
+        const usernameToSend = auth.user.username || 'Demo User';
+
+        fetch(API_ENDPOINTS.TEST_RESULTS, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': auth.getAuthHeader()
             },
             body: JSON.stringify({
-              userId: auth.user.id,
-              answers: this.answers,
-              results
+              userId: userIdToSend,
+              username: usernameToSend,
+              answers: sanitizedAnswers,
+              results: results
             })
-          })
-          const data = await response.json()
-          if (data.success) {
-            console.log('Test results saved to database')
-          }
-        } catch (error) {
-          console.error('Failed to save test results:', error)
-        }
+        }).catch(err => console.log("Fail saving to database:", err));
       }
 
       return results
@@ -233,38 +336,52 @@ export default {
         technical: {
           title: "Software Engineering & Computer Science",
           careers: ["Software Developer", "Data Scientist", "Machine Learning Engineer", "Systems Architect", "Cybersecurity Specialist"],
-          description: "Suitable for those who love technology, problem-solving, and building complex systems"
+          description: "Suitable for those who love technology and problem-solving"
         },
         business: {
           title: "Business Information Systems & IT Management",
           careers: ["IT Project Manager", "Business Analyst", "IT Consultant", "Product Manager", "Data Analyst"],
-          description: "Suitable for those with management skills and business understanding combined with technology"
+          description: "Suitable for those with management skills and business understanding"
         },
         creative: {
           title: "Digital Design & Media Technology",
           careers: ["UI/UX Designer", "Front-end Developer", "Digital Content Creator", "Interactive Media Designer", "Web Designer"],
-          description: "Suitable for those with creativity and aesthetic sense in digital media"
+          description: "Suitable for those with creativity in digital media"
         },
         interdisciplinary: {
           title: "Interdisciplinary IT & Emerging Technologies",
           careers: ["Tech Entrepreneur", "Innovation Consultant", "Digital Transformation Specialist", "EdTech Developer", "HealthTech Specialist"],
-          description: "Suitable for those who thrive at the intersection of technology and other fields"
+          description: "Suitable for those at the intersection of technology and other fields"
         }
       }
 
-      const maxScorePerCategory = {}
+      const questionCountPerCategory = {}
       this.questions.forEach(q => {
-        maxScorePerCategory[q.category] = (maxScorePerCategory[q.category] || 0) + 2
+        const cat = q.category || 'technical'
+        questionCountPerCategory[cat] = (questionCountPerCategory[cat] || 0) + 1
       })
 
       const sortedFields = Object.entries(categoryScores)
-        .sort(([, a], [, b]) => b - a)
-        .map(([field, score]) => ({
-          field,
-          score,
-          maxScore: maxScorePerCategory[field] || 1,
-          ...careers[field]
-        }))
+        .map(([field, rawScore]) => {
+          const count = questionCountPerCategory[field] || 1;
+          const minPossible = count * -2;
+          const maxPossible = count * 2;
+          const range = maxPossible - minPossible;
+          
+          let percentage = 0;
+          if (range > 0) {
+             percentage = Math.round(((rawScore - minPossible) / range) * 100);
+          }
+
+          return {
+            field,
+            score: rawScore,
+            maxScore: maxPossible,
+            percentage: percentage,
+            ...careers[field]
+          }
+        })
+        .sort((a, b) => b.percentage - a.percentage)
 
       return {
         topRecommendations: sortedFields,
@@ -367,7 +484,6 @@ export default {
   font-weight: 600;
 }
 
-/* Responsive */
 @media (max-width: 600px) {
   .scale-options {
     flex-wrap: wrap;
