@@ -27,7 +27,7 @@ const app = new Elysia()
       'http://localhost:1409',
       'http://localhost:3000',
       'https://testui-881n.vercel.app',
-
+      /\.vercel\.app$/  
     ],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
